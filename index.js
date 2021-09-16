@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken')
 const passport = require('passport')
 const session = require('express-session')
 const Util = require('./util')
-const url = require('url');
+const url = require('url')
 
 const Images = require('./agentLogic/images')
 
@@ -26,22 +26,22 @@ const Users = require('./agentLogic/users')
 
 server.on('upgrade', function upgrade(request, socket, head) {
   console.log('upgrade')
-  const pathname = url.parse(request.url).pathname;
+  const pathname = url.parse(request.url).pathname
 
   if (pathname === '/api/admin/ws') {
     websocket.wss.handleUpgrade(request, socket, head, function done(ws) {
       ws.type = 'admin'
-      websocket.wss.emit('connection', ws, request);
-    });
+      websocket.wss.emit('connection', ws, request)
+    })
   } else if (pathname === '/api/anon/ws') {
     anonWebSocket.awss.handleUpgrade(request, socket, head, function done(ws) {
       ws.type = 'anon'
-      anonWebSocket.awss.emit('connection', ws, request);
-    });
+      anonWebSocket.awss.emit('connection', ws, request)
+    })
   } else {
-    socket.destroy();
+    socket.destroy()
   }
-});
+})
 
 app.use(bodyParser.urlencoded({extended: false}))
 app.use(bodyParser.json())

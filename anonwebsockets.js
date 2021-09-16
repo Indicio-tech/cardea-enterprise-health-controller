@@ -2,15 +2,16 @@ const server = require('./index.js').server
 const ControllerError = require('./errors.js')
 const WebSocket = require('ws')
 
-
-awss = new WebSocket.Server({ noServer: true })
+awss = new WebSocket.Server({noServer: true})
 console.log('Anon Websockets Setup')
 let connectionIDWebSocket = []
 
 // Send a message to all connected clients
 const sendMessageToAll = (context, type, data = {}) => {
   try {
-    console.log(`Sending Message to all anon websocket clients of type: ${type}`)
+    console.log(
+      `Sending Message to all anon websocket clients of type: ${type}`,
+    )
 
     awss.clients.forEach(function each(client) {
       if (client.type != 'anon') {
@@ -30,7 +31,7 @@ const sendMessageToAll = (context, type, data = {}) => {
 }
 
 const sendMessageToConnectionId = (connection_id, context, type, data = {}) => {
-  let ws = connectionIDWebSocket[connection_id];
+  let ws = connectionIDWebSocket[connection_id]
 
   console.log(`Sending Message to anon websocket client of type: ${type}`)
   try {
@@ -67,7 +68,9 @@ awss.on('connection', (ws, req) => {
   ws.on('close', (code, reason) => {
     console.log('Anon Websocket Connection Closed', code, reason)
 
-    ws.connection_ids.forEach(connection_id => delete connectionIDWebSocket[connection_id])
+    ws.connection_ids.forEach(
+      (connection_id) => delete connectionIDWebSocket[connection_id],
+    )
   })
 
   ws.on('ping', (data) => {
@@ -106,7 +109,6 @@ const messageHandler = async (ws, context, type, data = {}) => {
   try {
     console.log(`New Message with context: '${context}' and type: '${type}'`)
     switch (context) {
-
       case 'INVITATIONS':
         switch (type) {
           case 'CREATE_SINGLE_USE':
@@ -114,7 +116,7 @@ const messageHandler = async (ws, context, type, data = {}) => {
             invitation = await Invitations.createSingleUseInvitation()
 
             ws.connection_ids.push(invitation.connection_id)
-            connectionIDWebSocket[invitation.connection_id] = ws;
+            connectionIDWebSocket[invitation.connection_id] = ws
 
             sendMessage(ws, 'INVITATIONS', 'INVITATION', {
               invitation_record: invitation,
@@ -151,5 +153,3 @@ module.exports = {
 }
 
 const Invitations = require('./agentLogic/invitations')
-
-
