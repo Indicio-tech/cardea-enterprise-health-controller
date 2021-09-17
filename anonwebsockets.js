@@ -3,8 +3,15 @@ const ControllerError = require('./errors.js')
 const WebSocket = require('ws')
 
 awss = new WebSocket.Server({noServer: true})
-console.log('Anon Websockets Setup')
 let connectionIDWebSocket = []
+
+const checkWebsocketID = (connectionID) => {
+  console.log(connectionID)
+  console.log(connectionIDWebSocket)
+  console.log(connectionID in connectionIDWebSocket)
+  console.log("Check to see if we have this anonymous websocket connection")
+  return connectionID in connectionIDWebSocket
+}
 
 // Send a message to all connected clients
 const sendMessageToAll = (context, type, data = {}) => {
@@ -147,6 +154,7 @@ const messageHandler = async (ws, context, type, data = {}) => {
 }
 
 module.exports = {
+  checkWebsocketID,
   sendMessageToAll,
   sendMessageToConnectionId,
   awss,

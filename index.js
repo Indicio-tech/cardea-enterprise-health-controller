@@ -137,6 +137,28 @@ app.post('/api/user/log-in', (req, res, next) => {
   })(req, res, next)
 })
 
+// Passwordless Authentication
+app.post('/api/user/passwordless-log-in', (req, res) => {
+if(req.body) console.log(req.body)
+  //userByEmail = await Users.getUserByEmail(req.body.email)
+  // if (!userByEmail) res.json({ error: 'The user was not found.' })
+
+  // // Put roles in the array
+  // const userRoles = []
+  // userByEmail.Roles.forEach((element) => userRoles.push(element.role_name))
+
+  // res.cookie(
+  //   'user',
+  //   { id: userByEmail.user_id, username: userByEmail.username, roles: userRoles },
+  //   { httpOnly: false },
+  // )
+  // res.json({
+  //   id: userByEmail.user_id,
+  //   username: userByEmail.username,
+  //   roles: userRoles,
+  // })
+})
+
 // Logging out
 app.post('/api/user/log-out', (req, res) => {
   req.logout()

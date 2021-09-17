@@ -1,11 +1,12 @@
 const AdminAPI = require('../adminAPI')
-const Websockets = require('../websockets.js')
+const Websockets = require('../websockets')
+const AnonWebsockets = require('../anonwebsockets')
 
-let Connections = require('../orm/connections.js')
-let Contacts = require('../orm/contacts.js')
-let ContactsCompiled = require('../orm/contactsCompiled.js')
-let Demographics = require('../orm/demographics.js')
-let Passports = require('../orm/passports.js')
+let Connections = require('../orm/connections')
+let Contacts = require('../orm/contacts')
+let ContactsCompiled = require('../orm/contactsCompiled')
+
+let Presentations = require('./presentations')
 
 // Perform Agent Business Logic
 
@@ -161,6 +162,16 @@ const adminMessage = async (connectionMessage) => {
     )
 
     Websockets.sendMessageToAll('CONTACTS', 'CONTACTS', {contacts: [contact]})
+    AnonWebsockets.sendMessageToConnectionId(
+      connectionMessage.connection_id,
+      'CONTACTS',
+      'CONTACTS',
+      {contacts: [contact]},
+    )
+
+    if (connectionMessage.state === "active") {
+      await Presentations.requestPresentation(connectionMessage.connection_id)
+    }
   } catch (error) {
     console.error('Error Storing Connection Message')
     throw error
