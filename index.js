@@ -152,10 +152,16 @@ app.post('/api/user/passwordless-log-in', async (req, res) => {
         { id: userByEmail.user_id, username: userByEmail.username, roles: userRoles },
         { httpOnly: false },
       )
+
+      //I don't know if we need line 157 and 158. Didn't have a chance to test
+      req.session
+      req.session.save()
+
       res.json({
         id: userByEmail.user_id,
         username: userByEmail.username,
         roles: userRoles,
+        session: req.session
       })
     }
   }
