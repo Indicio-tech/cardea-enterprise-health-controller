@@ -43,7 +43,7 @@ server.on('upgrade', function upgrade(request, socket, head) {
   }
 })
 
-app.use(bodyParser.urlencoded({extended: false}))
+app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 
 app.use(passport.initialize())
@@ -51,8 +51,7 @@ require('./passport-config')(passport)
 
 server.listen(process.env.CONTROLLERPORT || 3100, () =>
   console.log(
-    `Server listening at http://localhost:${
-      process.env.CONTROLLERPORT || 3100
+    `Server listening at http://localhost:${process.env.CONTROLLERPORT || 3100
     }`,
     `\n Agent Address: ${process.env.AGENTADDRESS || 'localhost:8150'}`,
   ),
@@ -77,7 +76,7 @@ app.use(
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
-    cookie: {maxAge: 3600 * 1000, httpOnly: false},
+    cookie: { maxAge: 3600 * 1000, httpOnly: false },
     name: 'sessionId',
     resave: true, // Forces the session to be saved back to the session store, even if the session was never modified during the request.
     rolling: true, // keep updating the session on new requests
@@ -93,7 +92,7 @@ app.use(passport.session())
 app.post('/api/user/log-in', (req, res, next) => {
   // Empty/data checks
   if (!req.body.username || !req.body.password)
-    res.json({error: 'All fields must be filled out.'})
+    res.json({ error: 'All fields must be filled out.' })
 
   if (!Util.validateAlphaNumeric(req.body.username))
     res.json({
@@ -108,10 +107,10 @@ app.post('/api/user/log-in', (req, res, next) => {
     })
 
   if (!req.body.password || !req.body.username)
-    res.json({error: 'All fields must be filled out.'})
+    res.json({ error: 'All fields must be filled out.' })
   passport.authenticate('local', (err, user, info) => {
     if (err) throw err
-    if (!user) res.json({error: 'Username or password is wrong.'})
+    if (!user) res.json({ error: 'Username or password is wrong.' })
     else {
       req.logIn(user, (err) => {
         if (err) throw err
@@ -122,8 +121,8 @@ app.post('/api/user/log-in', (req, res, next) => {
 
         res.cookie(
           'user',
-          {id: req.user.user_id, username: req.user.username, roles: userRoles},
-          {httpOnly: false},
+          { id: req.user.user_id, username: req.user.username, roles: userRoles },
+          { httpOnly: false },
         )
 
         res.json({
@@ -138,25 +137,32 @@ app.post('/api/user/log-in', (req, res, next) => {
 })
 
 // Passwordless Authentication
-app.post('/api/user/passwordless-log-in', (req, res) => {
-if(req.body) console.log(req.body)
-  //userByEmail = await Users.getUserByEmail(req.body.email)
-  // if (!userByEmail) res.json({ error: 'The user was not found.' })
+app.post('/api/user/passwordless-log-in', async (req, res) => {
+  try {
+    if (req.body) {
+      userByEmail = await Users.getUserByEmail(req.body.email)
+      if (!userByEmail) res.json({ error: 'The user was not found.' })
 
-  // // Put roles in the array
-  // const userRoles = []
-  // userByEmail.Roles.forEach((element) => userRoles.push(element.role_name))
+      // Put roles in the array
+      const userRoles = []
+      userByEmail.Roles.forEach((element) => userRoles.push(element.role_name))
 
-  // res.cookie(
-  //   'user',
-  //   { id: userByEmail.user_id, username: userByEmail.username, roles: userRoles },
-  //   { httpOnly: false },
-  // )
-  // res.json({
-  //   id: userByEmail.user_id,
-  //   username: userByEmail.username,
-  //   roles: userRoles,
-  // })
+      res.cookie(
+        'user',
+        { id: userByEmail.user_id, username: userByEmail.username, roles: userRoles },
+        { httpOnly: false },
+      )
+      res.json({
+        id: userByEmail.user_id,
+        username: userByEmail.username,
+        roles: userRoles,
+      })
+    }
+  }
+  catch (error) {
+    console.error(err)
+    res.json({ error: 'There was an error.' })
+  }
 })
 
 // Logging out
@@ -166,9 +172,9 @@ app.post('/api/user/log-out', (req, res) => {
     if (!err) {
       res
         .status(200)
-        .clearCookie('sessionId', {path: '/'})
-        .clearCookie('user', {path: '/'})
-        .json({status: 'Session destroyed.'})
+        .clearCookie('sessionId', { path: '/' })
+        .clearCookie('user', { path: '/' })
+        .json({ status: 'Session destroyed.' })
     } else {
       res.send("Couldn't destroy the session.")
     }
@@ -180,10 +186,10 @@ app.post('/api/user/token/validate', async (req, res) => {
   try {
     const verify = jwt.verify(req.body.token, process.env.JWT_SECRET)
     console.log(verify)
-    res.status(200).json({status: 'The link is valid.'})
+    res.status(200).json({ status: 'The link is valid.' })
   } catch (err) {
     console.error(err)
-    res.json({error: 'The link has expired.'})
+    res.json({ error: 'The link has expired.' })
   }
 })
 
@@ -194,13 +200,13 @@ app.post('/api/user/password/update', async (req, res) => {
   } catch (err) {
     console.error(err)
     console.log('The token has expired.')
-    res.json({error: 'The link has expired.'})
+    res.json({ error: 'The link has expired.' })
   }
 
   let user = undefined
 
   if (!req.body.password)
-    res.status(200).json({error: 'All fields must be filled out.'})
+    res.status(200).json({ error: 'All fields must be filled out.' })
   else if (!Util.validatePassword(req.body.password)) {
     res.json({
       error:
@@ -210,15 +216,15 @@ app.post('/api/user/password/update', async (req, res) => {
     try {
       const validToken = await Users.getUserByToken(req.body.token)
       if (validToken.user_id !== req.body.id)
-        res.json({error: 'The token did not match the user.'})
+        res.json({ error: 'The token did not match the user.' })
     } catch (error) {
       throw error
     }
 
     user = await Users.updatePassword(req.body.id, req.body.password)
     if (!user)
-      res.status(200).json({error: "The password couldn't be updated."})
-    else res.status(200).json({status: 'Password updated.'})
+      res.status(200).json({ error: "The password couldn't be updated." })
+    else res.status(200).json({ status: 'Password updated.' })
   }
 })
 
@@ -233,16 +239,16 @@ app.post('/api/user/update', async (req, res) => {
       const verify = jwt.verify(req.body.token, process.env.JWT_SECRET)
       console.log('The token is valid.')
     } catch (error) {
-      res.json({error: 'The link has expired.'})
+      res.json({ error: 'The link has expired.' })
       throw error
     }
 
     // Empty/data checks
     if (!req.body.email || !req.body.username || !req.body.password)
-      res.json({error: 'All fields must be filled out.'})
+      res.json({ error: 'All fields must be filled out.' })
 
     if (!Util.validateEmail(req.body.email))
-      res.json({error: 'Must be a valid email.'})
+      res.json({ error: 'Must be a valid email.' })
 
     if (!Util.validateAlphaNumeric(req.body.username))
       res.json({
@@ -257,7 +263,7 @@ app.post('/api/user/update', async (req, res) => {
       })
 
     userByEmail = await Users.getUserByEmail(req.body.email)
-    if (!userByEmail) res.json({error: 'The user was not found.'})
+    if (!userByEmail) res.json({ error: 'The user was not found.' })
 
     user = await Users.updateUser(
       userByEmail.user_id,
@@ -272,13 +278,13 @@ app.post('/api/user/update', async (req, res) => {
     // Updating the token for the user (from password forgot screen)
 
     // Empty/data checks
-    if (!req.body.email) res.json({error: 'All fields must be filled out.'})
+    if (!req.body.email) res.json({ error: 'All fields must be filled out.' })
 
     if (!Util.validateEmail(req.body.email))
-      res.json({error: 'Must be a valid email.'})
+      res.json({ error: 'Must be a valid email.' })
 
     userByEmail = await Users.getUserByEmail(req.body.email)
-    if (!userByEmail) res.json({error: 'The user was not found.'})
+    if (!userByEmail) res.json({ error: 'The user was not found.' })
     user = await Users.updateUser(
       userByEmail.user_id,
       userByEmail.username,
@@ -293,15 +299,15 @@ app.post('/api/user/update', async (req, res) => {
   // If SMTP is not set up or broken
   if (user.error) res.send(user.error)
 
-  if (!user) res.json({error: "The user couldn't be updated."})
-  else res.status(200).json({status: 'User updated.'})
+  if (!user) res.json({ error: "The user couldn't be updated." })
+  else res.status(200).json({ status: 'User updated.' })
 })
 
 // Logo retrieval
 app.get('/api/logo', async (req, res) => {
   try {
     const logo = await Images.getImagesByType('logo')
-    if (!logo) res.json({error: 'The logo was not found.'})
+    if (!logo) res.json({ error: 'The logo was not found.' })
     console.log(logo)
     res.send(logo)
   } catch (err) {
@@ -311,7 +317,7 @@ app.get('/api/logo', async (req, res) => {
 
 // Session expiration reset
 app.get('/api/session', async (req, res) => {
-  res.status(200).json({status: 'session'})
+  res.status(200).json({ status: 'session' })
 })
 
 app.use('/', (req, res) => {

@@ -23,7 +23,7 @@ const adminMessage = async (message) => {
     if (AnonWebsockets.checkWebsocketID(message.connection_id)) {
       console.log (message.presentation.requested_proof.revealed_attrs.address)
       AnonWebsockets.sendMessageToConnectionId(message.connection_id, 'PRESENTATIONS', 'VERIFIED', {
-        connection_id: message.connection_id,
+        address: message.presentation.requested_proof.revealed_attrs.address,
       })
     }
     else {
