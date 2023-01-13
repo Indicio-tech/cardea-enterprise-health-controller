@@ -54,6 +54,14 @@ app.use('/api/second-controller', (req, res) => {
   res.status(200).send()
 })
 
+// -----------------------------APIs imports--------------------------------------
+// Invitation request API
+const Invitations = require('./agentLogic/invitations')
+const Credentials = require('./agentLogic/credentials')
+const IssuanceRequests = require('./agentLogic/issuanceRequests')
+const Verifications = require('./agentLogic/verifications')
+// -----------------------------APIs imports--------------------------------------
+
 // (eldersonar)
 app.use(
   '/api/governance-framework',
@@ -359,6 +367,417 @@ app.get('/api/renew-session', verifySession, async (req, res) => {
     .status(200)
     .json({id: user.user_id, username: user.username, roles: userRoles})
 })
+
+// -------------------------------------------------APIS---------------------------------------------------------------------
+
+const checkApiKey = function (req, res, next) {
+  if (req.header('x-api-key') === process.env.APIKEY) {
+    next()
+  } else {
+    res.sendStatus(401)
+  }
+}
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Invitations!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// Create invitation
+app.post('/api/v1/invitations', checkApiKey, async (req, res) => {
+  console.log(req.body)
+  const data = req.body
+  try {
+    if (data.invitation_type === 'OOB') {
+      console.log('OOB invitation workflow')
+      const oob = await Invitations.createOutOfBandInvitation(
+        data.contact_id,
+        data.handshake_protocol,
+        data.alias,
+        data.invitation_mode,
+        data.accept,
+        data.public,
+        data.invitation_role,
+        data.invitation_label,
+        data.invitation_status,
+        data.invitation_description,
+        data.invitation_active_starting_at,
+        data.invitation_active_ending_at,
+        data.uses_allowed ? data.uses_allowed : '',
+      )
+
+      const connectionInterval = setInterval(async () => {
+        const invByOOB = await Invitations.getInvitationByOOBId(
+          oob.oobInv.oob_id,
+        )
+
+        if (invByOOB) {
+          clearInterval(connectionInterval)
+          res.status(200).json({
+            invitation_url: invByOOB.invitation_url,
+            invitation_id: invByOOB.invitation_id,
+            contact_id: invByOOB.contact_id,
+          })
+        }
+      }, 1500)
+    } else {
+      console.log('CV1 invitation workflow')
+      const invitation = await Invitations.createInvitation(
+        data.contact_id,
+        data.alias,
+        data.invitation_mode,
+        data.accept,
+        data.public,
+        data.invitation_role,
+        data.invitation_label,
+        data.invitation_status,
+        data.invitation_description,
+        data.invitation_active_starting_at,
+        data.invitation_active_ending_at,
+        data.uses_allowed ? data.uses_allowed : '',
+      )
+
+      res.status(200).json({
+        invitation_url: invitation.newInv.invitation_url,
+        invitation_id: invitation.newInv.invitation_id,
+        contact_id: invitation.newInv.contact_id,
+      })
+    }
+  } catch (error) {
+    console.error(error)
+    res.json({error: 'There was a problem creating an invitation'})
+  }
+})
+
+// Accept invitation
+app.post('/api/v1/invitations/accept', checkApiKey, async (req, res) => {
+  console.log('Accepting invitation')
+
+  console.log(req.body)
+  const data = req.body
+
+  if (data) {
+    try {
+      if (data.invitation_url.split('=')[0].split('?')[1] === 'c_i') {
+        console.log('Accepting CV1 invitation')
+        const invitationMessage = await Invitations.acceptInvitation(
+          data.invitation_url,
+        )
+
+        if (invitationMessage) {
+          // (eldersonar) TODO: save invitation in received_invitations table and then return invitation_id from there
+          res
+            .status(200)
+            .json({success: true, invitation_id: invitationMessage})
+        } else {
+          console.log(
+            'Something went wrong and the connection invitation was not accepted.',
+          )
+          res.json({
+            error:
+              'Something went wrong and the connection invitation was not accepted.',
+          })
+        }
+      } else if (data.invitation_url.split('=')[0].split('?')[1] === 'oob') {
+        console.log('Accepting OOB invitation')
+        const invitationMessage = await Invitations.acceptOutOfBandInvitation(
+          data.invitation_url,
+        )
+        if (invitationMessage) {
+          // (eldersonar) TODO: save invitation in received_invitations table and then return invitation_id from there
+          res.status(200).json({invitation_id: invitationMessage})
+        } else {
+          console.log(
+            'Something went wrong and the OOB invitation was not accepted.',
+          )
+          res.json({
+            error:
+              'Something went wrong and the OOB invitation was not accepted.',
+          })
+        }
+      } else {
+        console.log(
+          'The protocol is not supported : ' +
+            data.invitation_url.split('=')[0].split('?')[1],
+        )
+        res.json({
+          error:
+            'The protocol is not supported : ' +
+            data.invitation_url.split('=')[0].split('?')[1],
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      res.json({error})
+    }
+  } else {
+    console.log('Error: no invitation was provided')
+    res.json({error: 'Error: no invitation was provided'})
+  }
+})
+
+// Get all invitations
+app.get('/api/v1/invitations', checkApiKey, async (req, res) => {
+  console.log('Get all invitations')
+  try {
+    const invitations = await Invitations.getAll({
+      sort: [[[req.query['sort-field'], req.query['sort-direction']]]],
+      pageSize: req.query['page-size'],
+      currentPage: req.query['current-page'],
+      // (eldersonar) The item-count is not doing much even when the valuse is passed
+      itemCount: req.query['item-count'],
+    })
+
+    if (invitations.count !== 0) {
+      res.status(200).json({invitations: invitations})
+    } else {
+      console.log('No invitations records')
+      res.status(200).json({warning: 'No invitations records.'})
+    }
+  } catch (error) {
+    console.error(error)
+    res.json({error})
+  }
+})
+
+// Get invitation by invitation id
+app.get('/api/v1/invitations/:id', checkApiKey, async (req, res) => {
+  console.log('Get invitation by id')
+  console.log(req.params.id)
+  try {
+    const invitation = await Invitations.getInvitation(req.params.id)
+
+    if (invitation) {
+      res.status(200).json({invitation})
+    } else {
+      console.log('No invitation record found by id')
+      res.status(200).json({warning: 'No invitation record found by id.'})
+    }
+  } catch (error) {
+    console.error(error)
+    res.json({error})
+  }
+})
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Invitations!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Credentials!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// Issue credential
+app.post('/api/v1/credentials', checkApiKey, async (req, res) => {
+  console.log(req.body)
+  const data = req.body
+
+  try {
+    const invitationId = data.invitation_id || null
+    const contactId = data.contact_id || ''
+
+    // (eldersonar) Make sure that the invitation id is either a number or a string
+    if (typeof invitationId === 'number' || invitationId === null) {
+      // (eldersonar) Make sure that the invitation id is either a number or a string
+      if (typeof contactId !== 'string') {
+        throw {error: 'Contact id must be type of string'}
+      } else {
+        if (invitationId === null && contactId === '') {
+          throw 'MISSING_IDENTIFIER'
+        }
+
+        const schemaId = data.schema_id
+        const attributes = data.attributes
+
+        console.log('')
+        console.log(
+          '_____________Credential flow triggered - add request_____________',
+        )
+        console.log('')
+
+        let result = null
+
+        result = await IssuanceRequests.addRequest(
+          contactId,
+          invitationId,
+          schemaId,
+          attributes,
+        )
+
+        if (result && result.error) {
+          throw result
+        }
+
+        // (mikekebert) After we record a new issuance request, we need to check to see if there is an active connection
+        // for either this invitationId and/or this contactId (whichever was provided);
+        // If there is, we can issue the credential right away
+        console.log('')
+        console.log(
+          '_____________Credential flow triggered - process requests_____________',
+        )
+        console.log('')
+        result = await IssuanceRequests.processRequests(contactId, invitationId)
+
+        if (result && result.error) {
+          throw result
+        }
+        if (result && result.warning) {
+          res.status(200).json({warning: result.warning})
+        } else {
+          res.status(200).json({success: 'Credential was offered'})
+        }
+      }
+    } else {
+      throw {error: 'Invitation id must be type of integer or null'}
+    }
+  } catch (error) {
+    // TODO: replace with the custom extended message provided by Mike Ebert
+    console.error(error)
+    if (error === 'MISSING_IDENTIFIER') {
+      res.json({error: "contact_id and invitation_id can't both be null"})
+    } else if (error) {
+      // (eledersonar) TODO: find the best code for default in case we need one
+      let errorStatus = 500
+      if (!error.code || error.code < 100) {
+        // Add a custom error code
+        errorStatus = 500
+      } else {
+        // Handle error code coming from a broken adminAPI call
+        errorStatus = error.code
+        delete error.code
+      }
+      res.status(errorStatus).json(error)
+    } else {
+      res.json({
+        error:
+          'The credential could not be issued. Please, check your inputs and DID.',
+      })
+    }
+  }
+})
+
+// Get all credentials
+app.get('/api/v1/credentials', checkApiKey, async (req, res) => {
+  console.log('Get all credentials')
+  try {
+    const credentials = await Credentials.getAll()
+
+    if (credentials) {
+      res.status(200).json({credentials: credentials})
+    } else {
+      console.log('No credentials records')
+      res.status(200).json({warning: 'No credentials records.'})
+    }
+  } catch (error) {
+    console.error(error)
+    res.json({error})
+  }
+})
+
+// Get credential by credential exchange id
+app.get('/api/v1/credentials/:id', checkApiKey, async (req, res) => {
+  console.log('Get credential by id')
+  console.log(req.params.id)
+  try {
+    const credential = await Credentials.getCredential(req.params.id)
+
+    if (credential) {
+      res.status(200).json({credential})
+    } else {
+      console.log('No credential record found by id')
+      res.status(200).json({warning: 'No credential record found by id.'})
+    }
+  } catch (error) {
+    console.error(error)
+    res.json({error})
+  }
+})
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Credentials!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Verifications!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// Create verification
+app.post('/api/v1/verifications', checkApiKey, async (req, res) => {
+  const data = req.body
+
+  try {
+    const invitationId = data.invitation_id || null
+    const contactId = data.contact_id || ''
+
+    // (eldersonar) Make sure that the invitation id is either a number or a string
+    if (typeof invitationId === 'number' || invitationId === null) {
+      // (eldersonar) Make sure that the invitation id is either a number or a string
+      if (typeof contactId !== 'string') {
+        throw {error: 'Contact id must be type of string'}
+      } else {
+        if (invitationId === null && contactId === '') {
+          throw 'MISSING_IDENTIFIER'
+        }
+
+        console.log('')
+        console.log(
+          '_____________Verification flow triggered - verify_____________',
+        )
+        console.log('')
+
+        const verification = await Verifications.verify({
+          invitation_id: invitationId,
+          contact_id: contactId,
+          schemas: data.schemas,
+          timeout: data.timeout,
+          rule: data.rule,
+        })
+
+        if (verification && verification.error) {
+          throw verification
+        }
+        if (verification && verification.warning) {
+          res.status(200).json({warning: verification.warning})
+        } else {
+          res.status(200).send(verification)
+        }
+      }
+    } else {
+      throw {error: 'Invitation id must be type of integer or null'}
+    }
+  } catch (error) {
+    // TODO: replace with the custom extended message provided by Mike Ebert
+    console.error(error)
+    if (error === 'MISSING_IDENTIFIER') {
+      res.json({error: "contact_id and invitation_id can't both be null"})
+    } else if (error) {
+      // (eledersonar) TODO: find the best code for default in case we need one
+      let errorStatus = 500
+      if (!error.code || error.code < 100) {
+        // Add a custom error code
+        errorStatus = 500
+      } else {
+        // Handle error code coming from a broken adminAPI call
+        errorStatus = error.code
+        delete error.code
+      }
+      res.status(errorStatus).json(error)
+    } else {
+      res.json({
+        error: 'Unexpected error occurred',
+      })
+    }
+  }
+})
+
+// Get verification by verification id
+app.get('/api/v1/verifications/:id', checkApiKey, async (req, res) => {
+  try {
+    console.log('')
+    console.log(
+      '_____________Verification flow triggered - retrieve_____________',
+    )
+    console.log('')
+    const verification = await Verifications.retrieve(req.params.id)
+
+    res.status(200).json(verification)
+  } catch (error) {
+    console.error(error)
+    res.json({error: 'There was a problem retrieving a verification'})
+  }
+})
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Verifications!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// -------------------------------------------------APIS---------------------------------------------------------------------
 
 app.use('/', (req, res) => {
   console.log('Request outside of normal paths', req.url)
